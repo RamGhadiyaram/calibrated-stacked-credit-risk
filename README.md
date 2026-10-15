@@ -12,8 +12,8 @@ Code for the paper "Calibrated Stacked Ensembles for Explainable Credit Risk Sco
 ```bash
 pip install -r requirements.txt
 python pipeline_revision.py --data synth --repeats 3 --out out
-python pipeline_revision.py --data german --repeats 3 --german_path SouthGermanCredit.asc --out out
-python pipeline_revision.py --data taiwan --repeats 2 --n_max 10000 --taiwan_path taiwan.csv --out out
+python pipeline_revision.py --data german --repeats 3 --german_path data/GermanCredit.csv --out out
+python pipeline_revision.py --data taiwan --repeats 2 --n_max 10000 --taiwan_path data/taiwan_credit.csv --out out
 python analyze.py
 python shap_figs.py
 ```
