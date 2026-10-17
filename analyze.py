@@ -1,10 +1,11 @@
-import sys, json, numpy as np, pandas as pd
+import os, sys, json, numpy as np, pandas as pd
 from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-OUT = "out"
+BASE = os.environ.get("CR_BASE", ".")
+OUT = os.path.join(BASE, "out")
 ORDER = ["Logistic", "XGBoost", "LightGBM", "CatBoost", "AttnBiLSTM",
          "Stacked (raw)", "Stacked (isotonic)", "Stacked (Platt)"]
 MET = ["auc", "pr_auc", "brier", "ks", "ece", "cal_slope", "cal_citl"]

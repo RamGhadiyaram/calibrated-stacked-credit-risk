@@ -15,7 +15,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
 import pipeline_revision as pr
 
-OUT = "out_shap"
+BASE = os.environ.get("CR_BASE", ".")
+OUT = os.path.join(BASE, "out_shap")
 os.makedirs(OUT, exist_ok=True)
 SEED = pr.SEED
 

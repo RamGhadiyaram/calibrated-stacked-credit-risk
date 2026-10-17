@@ -23,6 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score, average_precision_score, brier_score_loss, roc_curve
 import xgboost as xgb, lightgbm as lgb
 from catboost import CatBoostClassifier
+BASE = os.environ.get('CR_BASE', '.')   # project root (Google Drive folder in Colab)
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -107,7 +108,7 @@ def fit_lgb(X, y):
 
 def fit_cat(X, y):
     m = CatBoostClassifier(iterations=350, depth=4, learning_rate=0.05, random_seed=SEED,
-                           verbose=0, thread_count=4)
+                           verbose=0, thread_count=4, allow_writing_files=False)
     return m.fit(X, y)
 
 def fit_lr(X, y):
@@ -220,10 +221,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", required=True, choices=["german", "synth", "taiwan"])
     ap.add_argument("--repeats", type=int, default=3)
-    ap.add_argument("--german_path", default="data/GermanCredit.csv")
-    ap.add_argument("--taiwan_path", default="data/taiwan_credit.csv")
+    ap.add_argument("--german_path", default=f"{BASE}/data/GermanCredit.csv")
+    ap.add_argument("--taiwan_path", default=f"{BASE}/data/taiwan_credit.csv")
     ap.add_argument("--n_max", type=int, default=10000)
-    ap.add_argument("--out", default="out")
+    ap.add_argument("--out", default=f"{BASE}/out")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     if a.data == "synth":
