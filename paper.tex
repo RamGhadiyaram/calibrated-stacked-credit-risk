@@ -1,0 +1,347 @@
+\documentclass[conference,a4paper]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{textcomp}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em T\kern-.1667em\lower.7ex\hbox{E}\kern-.125em X}}
+\lstset{basicstyle=\ttfamily\scriptsize,breaklines=true,columns=fullflexible,frame=single}
+\newcommand{\repourl}{the project repository (URL to be inserted)}
+\begin{document}
+\title{Calibrated Stacked Ensembles for Explainable Credit Risk Scoring Under Tariff-Driven Volatility: An Attention-BiLSTM and XGBoost Framework}
+\author{\IEEEauthorblockN{Ram Ghadiyaram\IEEEauthorrefmark{1}\thanks{\IEEEauthorrefmark{1}Corresponding author: ram.ghadiyaram@gmail.com}}
+\IEEEauthorblockA{\textit{Independent Researcher}\\
+Celina, TX, USA\\
+ORCID 0009-0006-3730-0914}
+\and
+\IEEEauthorblockN{Sashi Kiran Kaata}
+\IEEEauthorblockA{\textit{Independent Researcher}\\
+Glendale, AZ, USA\\
+ORCID 0009-0002-7980-2905}}
+\maketitle
+\begin{abstract}
+Global tariffs, averaging near 11\% across the U.S. economy in 2026, raise the risk of consumer loan delinquency for fintech lenders. This paper evaluates a credit risk framework that stacks XGBoost and an attention-augmented bidirectional LSTM through out-of-fold predictions, adds probability calibration, and explains the full deployed ensemble with KernelSHAP. We assess it with repeated, nested cross-validation on a simulated tariff-stress portfolio ($n=6{,}000$), the corrected South German Credit data ($n=1{,}000$) and a stratified subsample of the Taiwan credit-card default data ($n=10{,}000$), against logistic regression, XGBoost, LightGBM and CatBoost. The stacked ensemble reaches mean ROC-AUC of 0.824, 0.793 and 0.767, within 0.005 of the best single model on every dataset and never significantly below a gradient-boosted model. It does not reliably beat the strongest baselines: logistic regression is nominally better on the synthetic data, and CatBoost is statistically tied on both real datasets. Its main advantage is probability quality. The logistic meta-learner keeps the calibration slope between 1.02 and 1.09 on all three datasets and gives the lowest expected calibration error on the German data. Isotonic recalibration added nothing and lowered PR-AUC in every fold. A seeded Python pipeline reproduces every reported number.
+\end{abstract}
+\begin{IEEEkeywords}
+credit risk, tariffs, stacked ensemble, probability calibration, explainable AI, SHAP
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+As of 2026, U.S. average effective tariff rates stand near 11\%, with select product categories, including patented pharmaceuticals and select metals, facing levies of 100\% or more, driven by protectionist trade policy and continued geopolitical realignment \cite{r9}. The Yale Budget Lab estimates that current-law tariff policy will raise roughly \$1.9 trillion over the next decade and cost the average household approximately \$1,100 annually \cite{r9}. These tariffs interfere with supply chains, increase consumer prices, and add to inflation, which reduces household disposable income and raises the risk of loan delinquency for fintech lenders \cite{r13}. Federal Reserve data show 60-day-or-more personal loan delinquency rising to 3.98\% in early 2026, up from 3.49\% a year earlier, while aggregate consumer debt delinquency stood at 4.8\% in the first quarter \cite{r10,r11,r12}.
+
+Conventional credit scoring depends mainly on static indicators such as credit scores and income, which can miss fast-moving economic shocks. Machine learning is increasingly used to address this in financial risk management \cite{r16}. This paper evaluates a framework that combines XGBoost \cite{r2} for static risk scoring with an attention-augmented bidirectional LSTM (BiLSTM) \cite{r1,r3}, through out-of-fold stacked generalization \cite{r5}. The output is a calibrated probability of default, and SHAP \cite{r4} explains both the XGBoost component and the full ensemble. In this study the BiLSTM receives each borrower\textquotesingle s feature vector as a single time step, so it acts as a nonlinear learner and not as a sequence model. Genuine repayment sequences are left to future work.
+
+The paper makes three contributions. First, it compares the ensemble against logistic regression, XGBoost, LightGBM and CatBoost on three datasets, using repeated, nested cross-validation and corrected paired tests \cite{r25}, so that every claim carries an uncertainty estimate. Second, it analyzes calibration directly, with expected calibration error, calibration slope and reliability diagrams, and separates the effect of the logistic meta-learner from that of isotonic recalibration. Third, it extends explainability from the tree component to the full deployed ensemble through KernelSHAP, and maps it to model-risk requirements (Section VII).
+
+The evidence supports a narrower claim than the one we first made. Stacking does not reliably improve discrimination over the best single model. What it provides is stability across datasets and well-calibrated probabilities, which we report with the cases where it does not win.
+
+\section{Literature Review}
+
+Tariffs have historically imposed considerable economic strain, raised household expenditures, and contributed to inflationary dynamics \cite{r14}. Their effects extend to international supply chains, where tariffs on intermediate goods raise production costs, disrupt trade patterns and raise consumer prices \cite{r15}. Fintech lending is particularly exposed, as tariff-induced inflation is associated with rising loan delinquencies. New York Fed and industry data through the first half of 2026 document a sustained upward drift in personal-loan and credit-card delinquency relative to a year earlier \cite{r10,r11,r12}.
+
+Gradient boosting methods such as XGBoost scale to billions of examples through sparsity-aware split finding and weighted quantile sketching, and are the de-facto choice for structured, tabular risk-scoring problems \cite{r2}. LightGBM \cite{r23} and CatBoost \cite{r24} are widely used alternatives, and tree-based models continue to outperform deep architectures on typical tabular data \cite{r30}. Applied to behavioral credit scoring, gradient-boosted trees achieve higher discrimination than logistic-regression baselines \cite{r7}. Long Short-Term Memory networks remain the standard recurrent architecture for sequential data such as repayment histories \cite{r1}, and attention lets a model learn which positions to weight, instead of compressing a sequence into one hidden state \cite{r3}. We adopt multi-head self-attention as a lightweight augmentation over a bidirectional LSTM backbone.
+
+Stacked generalization combines heterogeneous base learners through a second-stage meta-model, and can reduce generalization error relative to its constituents, provided the meta-learner is trained on out-of-fold, not in-sample, base predictions \cite{r5}. Outputs of tree ensembles and neural networks are rarely well-calibrated probabilities out of the box \cite{r28,r32}. Common remedies are sigmoid (Platt) scaling \cite{r26} and isotonic regression \cite{r27}, and calibration is usually assessed with expected calibration error \cite{r29} and reliability diagrams. Post-hoc explainability, in particular SHAP\textquotesingle s Shapley-value attribution, has become a practical requirement for deploying opaque models in regulated credit decisions \cite{r4}. Whether an AUC gain from ensembling is distinguishable from sampling noise is rarely tested in applied credit scoring. We address this with the corrected resampled t-test of Nadeau and Bengio \cite{r25}, which accounts for overlap between cross-validation training sets, instead of a bootstrap over a single test set \cite{r18}, and we report its limits.
+
+Alternative data \cite{r8} and federated learning \cite{r6} are active directions for credit scoring. Both are outside the scope of the experiments here. Many applied credit-scoring papers, including an earlier synthetic-only version of this work, evaluate only on data the authors generated. We therefore use three datasets: a simulated tariff-stress portfolio, the real, error-corrected South German Credit data \cite{r21,r22} (a 1973-1975 sample from a regional German bank, hosted by the UCI repository), and the Taiwan credit-card default data \cite{r31}, which is ten times larger after subsampling.
+
+\section{Impact of Global Tariffs on Fintech Lending}
+
+Global tariffs affect fintech lending through several channels, which motivates a stress-oriented evaluation.
+
+\subsection{Cost inflation}
+
+Tariffs raise the price of imported goods, reducing household after-tax income and raising the risk of non-payment. The Yale Budget Lab estimates the consumer price impact of current-law 2026 tariff policy at roughly 0.7\%, or about \$1,100 in added annual household cost, with higher pass-through in exposed categories such as pharmaceuticals, metals and electronics \cite{r9}.
+
+\subsection{Delinquency risk}
+
+Personal-loan delinquency (60 days or more past due) reached 3.98\% in the first quarter of 2026, up from 3.49\% a year earlier, while aggregate consumer-loan delinquency across commercial banks stood near 4.8\% \cite{r10,r11,r12}. Borrowers with high debt-to-income ratios or variable incomes are especially vulnerable.
+
+\subsection{Loan demand}
+
+Tariffs that reduce discretionary spending tend to depress loan demand in affected markets, limiting fintech revenue as fewer loans are issued and consumers favor saving over borrowing.
+
+\subsection{Regulatory pressure}
+
+Evolving data-privacy regulation raises compliance costs, and model-risk-management expectations increasingly require that AI-driven credit decisions be explainable and independently auditable \cite{r4,r19,r20}. This motivates the SHAP layer and the regulatory mapping in Section VII.
+
+\textbf{Illustrative case.} Consider a hypothetical lender issuing \$1 million in daily loans against a portfolio like the simulated one in Section V, where about 30.2\% of applicants default absent screening. Expected daily losses are then roughly \$302,000. Section VI-F quantifies how much of this the framework could recover on simulated data. This is an illustration on synthetic data, not a forecast for any real lender.
+
+\section{Credit Risk Assessment Framework}
+
+The framework has four components: a gradient-boosted static scorer, an attention-augmented neural scorer, an out-of-fold stacked meta-ensemble with optional isotonic recalibration, and a two-tier SHAP explainability layer. All are implemented with open-source tools.
+
+\subsection{XGBoost scorer}
+
+XGBoost \cite{r2} scores borrowers from their features. It is trained with 350 trees of depth 4, a learning rate of 0.05, row and column subsampling of 0.8, and L2 regularization, using the xgboost Python package.
+
+\subsection{Attention-augmented BiLSTM scorer}
+
+A bidirectional LSTM \cite{r1} processes each borrower\textquotesingle s standardized feature vector and is augmented with a two-head self-attention block \cite{r3}. The attention output is combined with the BiLSTM output through a residual connection and layer normalization, pooled, and passed through a dense head with dropout. The network is trained for 25 epochs with Adam in TensorFlow/Keras. Because each borrower is one record, the input is a sequence of length one. The recurrent and attention layers therefore act as a nonlinear feature transformation, not as a model of repayment history. A study with real multi-period repayment sequences is the natural next step.
+
+\subsection{Stacking and calibration}
+
+The two base learners are combined by stacked generalization \cite{r5}. A logistic regression meta-learner is trained on the logit of out-of-fold predictions from 5-fold stratified cross-validation, which avoids leakage. This logistic meta-learner already acts as a sigmoid calibrator. We evaluate two further variants: isotonic regression \cite{r27} fit on the same out-of-fold meta-learner scores, and Platt scaling \cite{r26}. We report the raw stack, the isotonic variant and the Platt variant, and show in Section VI-E that isotonic recalibration is optional.
+
+\subsection{Two-tier explainability and implementation}
+
+SHAP values \cite{r4} are computed twice. First, TreeExplainer gives exact attributions for the XGBoost component. Second, KernelSHAP is applied to the entire calibrated stacked pipeline as a black box, with 30 background points and 40 explained points, so the explanation matches the model actually deployed. Federated averaging \cite{r6} is compatible with this architecture for multi-institution settings where raw records cannot be pooled, but it is not evaluated here. The whole pipeline is a seeded Python script (random\_state = 42) using scikit-learn, XGBoost, LightGBM, CatBoost, TensorFlow and SHAP (Appendix A). Figure 1 shows the process flow.
+
+\begin{figure*}[!tb]\centering\includegraphics[width=0.92\textwidth]{fig1_framework.png}\caption{Framework and validation process.}\label{fig:flow}\end{figure*}
+
+\section{Methodology}
+
+\subsection{Simulated tariff-stress portfolio}
+
+The primary dataset is a simulated portfolio of 6,000 borrowers with seven features: credit score, income, transaction volume, a tariff-exposure index (0 to 100, a stylized proxy for sector-level sensitivity to tariffs), debt-to-income ratio, 24-month delinquency history, and alternative-data spend volatility. Defaults are Bernoulli draws from a logistic function of a standardized, weighted combination of these features plus idiosyncratic noise, calibrated to a default rate of about 30\%. Because the generating process is logistic, a logistic model is well specified here and is expected to be very strong.
+
+\subsection{South German Credit (real, corrected)}
+
+The second dataset is the corrected South German Credit data \cite{r21}: 1,000 real loan applicants of a regional bank (1973-1975), 20 attributes (7 numeric, 13 categorical, one-hot encoded) and a 30\% default rate. We use the corrected release because the original Statlog coding contains errors in several categorical attributes \cite{r17,r22}. This dataset shares no features, scale or generating process with the synthetic portfolio.
+
+\subsection{Taiwan credit-card default (real, larger)}
+
+The third dataset is the Taiwan credit-card default data \cite{r31}: 30,000 clients described by credit limit, demographics, six months of repayment status, bill amounts and payment amounts, with a default rate of about 22\%. To keep nested stacking tractable on CPU, we use a stratified random subsample of 10,000 clients. The data dates from 2005, so it adds scale, not recency. Categorical attributes (sex, education, marital status) are one-hot encoded.
+
+\subsection{Models}
+
+All learners use the same feature matrix. Logistic regression uses standardized inputs and L2 regularization. XGBoost, LightGBM \cite{r23} and CatBoost \cite{r24} use depth 4, learning rate 0.05 and 350 trees or iterations. The attention-BiLSTM is described in Section IV-B. We do not evaluate TabNet or FT-Transformer. Tree ensembles generally outperform deep tabular models on data of this size \cite{r30}, and with 800 training applicants in the German data such models would add variance and little information. They are listed as future work on larger datasets.
+
+\subsection{Evaluation protocol}
+
+Each dataset is evaluated with 5-fold stratified cross-validation, repeated three times for the synthetic and German data (15 outer folds) and twice for the Taiwan data (10 outer folds). Stacking is nested. Inside each outer training set, an inner 5-fold loop produces out-of-fold predictions from XGBoost and the attention-BiLSTM, and the logistic meta-learner and the calibrators are fit only on those predictions. All base learners are then refit on the full outer training set and scored on the held-out fold. This replaces the single 80/20 split used in an earlier version, whose 200 German test applicants gave AUC standard errors near 0.035.
+
+\subsection{Metrics and significance tests}
+
+We report ROC-AUC, PR-AUC, Brier score, the Kolmogorov-Smirnov statistic, expected calibration error (ECE, ten equal-width bins) \cite{r29}, and the calibration slope, which is the coefficient from regressing outcomes on the logit of the predicted probability (1.0 is ideal, below 1.0 indicates overconfidence). Values are means and standard deviations over outer folds. To compare the stack with each model we apply the Nadeau-Bengio corrected resampled t-test to paired per-fold AUC differences \cite{r25}. These tests are approximate because cross-validation folds share data, and we apply no multiplicity correction. We therefore also report which results survive a Bonferroni threshold across the 15 stack-versus-model comparisons (0.05 / 15 = 0.0033).
+
+\section{Results}
+
+\subsection{Discrimination and probability quality}
+
+Tables I to III report mean $\pm$ SD over outer folds. On the synthetic portfolio, logistic regression has the highest ROC-AUC (0.828), the stack and the attention-BiLSTM tie at 0.824, and XGBoost and LightGBM trail. On the German data CatBoost is highest (0.798) with the stack close behind (0.793) and the attention-BiLSTM lowest (0.769). On the Taiwan data CatBoost and the stack are tied (0.768 and 0.767), and logistic regression is far behind (0.720).
+
+\begin{table*}[!t]
+\caption{Simulated tariff-stress portfolio (n = 6,000; 15 outer folds)}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{lcccccc}
+\toprule
+Model & ROC-AUC & PR-AUC & Brier & KS & ECE & Cal. slope \\
+\midrule
+Logistic & 0.828 $\pm$ 0.011 & 0.676 $\pm$ 0.017 & 0.150 $\pm$ 0.004 & 0.512 $\pm$ 0.021 & 0.025 $\pm$ 0.006 & 0.999 $\pm$ 0.060 \\
+XGBoost & 0.813 $\pm$ 0.010 & 0.651 $\pm$ 0.017 & 0.157 $\pm$ 0.004 & 0.481 $\pm$ 0.019 & 0.036 $\pm$ 0.009 & 0.849 $\pm$ 0.038 \\
+LightGBM & 0.811 $\pm$ 0.009 & 0.648 $\pm$ 0.017 & 0.158 $\pm$ 0.004 & 0.478 $\pm$ 0.020 & 0.038 $\pm$ 0.008 & 0.824 $\pm$ 0.041 \\
+CatBoost & 0.820 $\pm$ 0.010 & 0.665 $\pm$ 0.017 & 0.153 $\pm$ 0.004 & 0.496 $\pm$ 0.023 & 0.027 $\pm$ 0.005 & 0.958 $\pm$ 0.055 \\
+Attn-BiLSTM & 0.824 $\pm$ 0.012 & 0.670 $\pm$ 0.019 & 0.152 $\pm$ 0.005 & 0.506 $\pm$ 0.029 & 0.030 $\pm$ 0.009 & 0.910 $\pm$ 0.077 \\
+Stacked (raw) & 0.824 $\pm$ 0.011 & 0.670 $\pm$ 0.018 & 0.151 $\pm$ 0.004 & 0.507 $\pm$ 0.027 & 0.023 $\pm$ 0.005 & 1.019 $\pm$ 0.071 \\
+Stacked (isotonic) & 0.823 $\pm$ 0.011 & 0.653 $\pm$ 0.018 & 0.152 $\pm$ 0.005 & 0.499 $\pm$ 0.027 & 0.022 $\pm$ 0.005 & 0.964 $\pm$ 0.084 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[!t]
+\caption{South German Credit, corrected release (n = 1,000; 15 outer folds)}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{lcccccc}
+\toprule
+Model & ROC-AUC & PR-AUC & Brier & KS & ECE & Cal. slope \\
+\midrule
+Logistic & 0.782 $\pm$ 0.034 & 0.625 $\pm$ 0.044 & 0.165 $\pm$ 0.011 & 0.477 $\pm$ 0.051 & 0.070 $\pm$ 0.019 & 0.919 $\pm$ 0.196 \\
+XGBoost & 0.789 $\pm$ 0.027 & 0.639 $\pm$ 0.037 & 0.167 $\pm$ 0.013 & 0.484 $\pm$ 0.038 & 0.092 $\pm$ 0.024 & 0.628 $\pm$ 0.119 \\
+LightGBM & 0.785 $\pm$ 0.024 & 0.637 $\pm$ 0.036 & 0.168 $\pm$ 0.011 & 0.472 $\pm$ 0.051 & 0.089 $\pm$ 0.022 & 0.610 $\pm$ 0.101 \\
+CatBoost & 0.798 $\pm$ 0.030 & 0.651 $\pm$ 0.038 & 0.160 $\pm$ 0.011 & 0.499 $\pm$ 0.050 & 0.077 $\pm$ 0.018 & 0.803 $\pm$ 0.141 \\
+Attn-BiLSTM & 0.769 $\pm$ 0.036 & 0.611 $\pm$ 0.056 & 0.176 $\pm$ 0.017 & 0.443 $\pm$ 0.051 & 0.093 $\pm$ 0.031 & 0.623 $\pm$ 0.147 \\
+Stacked (raw) & 0.793 $\pm$ 0.033 & 0.643 $\pm$ 0.048 & 0.161 $\pm$ 0.010 & 0.487 $\pm$ 0.060 & 0.055 $\pm$ 0.012 & 1.086 $\pm$ 0.210 \\
+Stacked (isotonic) & 0.790 $\pm$ 0.032 & 0.611 $\pm$ 0.046 & 0.163 $\pm$ 0.009 & 0.461 $\pm$ 0.055 & 0.061 $\pm$ 0.010 & 0.904 $\pm$ 0.236 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[!t]
+\caption{Taiwan credit-card default, stratified subsample (n = 10,000; 10 outer folds)}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{lcccccc}
+\toprule
+Model & ROC-AUC & PR-AUC & Brier & KS & ECE & Cal. slope \\
+\midrule
+Logistic & 0.720 $\pm$ 0.012 & 0.504 $\pm$ 0.019 & 0.145 $\pm$ 0.002 & 0.379 $\pm$ 0.017 & 0.050 $\pm$ 0.003 & 0.946 $\pm$ 0.094 \\
+XGBoost & 0.764 $\pm$ 0.009 & 0.536 $\pm$ 0.021 & 0.138 $\pm$ 0.004 & 0.415 $\pm$ 0.018 & 0.026 $\pm$ 0.003 & 0.871 $\pm$ 0.054 \\
+LightGBM & 0.763 $\pm$ 0.008 & 0.531 $\pm$ 0.021 & 0.138 $\pm$ 0.003 & 0.414 $\pm$ 0.018 & 0.026 $\pm$ 0.004 & 0.857 $\pm$ 0.052 \\
+CatBoost & 0.768 $\pm$ 0.010 & 0.535 $\pm$ 0.022 & 0.137 $\pm$ 0.003 & 0.421 $\pm$ 0.015 & 0.017 $\pm$ 0.004 & 0.965 $\pm$ 0.062 \\
+Attn-BiLSTM & 0.750 $\pm$ 0.009 & 0.510 $\pm$ 0.016 & 0.144 $\pm$ 0.003 & 0.392 $\pm$ 0.023 & 0.040 $\pm$ 0.005 & 0.721 $\pm$ 0.047 \\
+Stacked (raw) & 0.767 $\pm$ 0.008 & 0.539 $\pm$ 0.022 & 0.137 $\pm$ 0.003 & 0.421 $\pm$ 0.018 & 0.022 $\pm$ 0.007 & 1.029 $\pm$ 0.054 \\
+Stacked (isotonic) & 0.766 $\pm$ 0.008 & 0.523 $\pm$ 0.020 & 0.137 $\pm$ 0.003 & 0.411 $\pm$ 0.014 & 0.019 $\pm$ 0.006 & 0.979 $\pm$ 0.052 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Statistical significance of the stacking gain}
+
+Table IV gives paired AUC differences for the raw stack against each model, using the corrected resampled t-test \cite{r25}. Results for the isotonic stack are in the released output and are similar. On the synthetic data the stack is significantly better than XGBoost and LightGBM, tied with the attention-BiLSTM, borderline above CatBoost (p = 0.054), and nominally below logistic regression (p = 0.011). On both real datasets it is statistically tied with every gradient-boosted model, and with logistic regression on the German data. It is above the attention-BiLSTM on both, and far above logistic regression on the Taiwan data. Across the 15 comparisons, four survive a Bonferroni threshold of 0.0033: the stack versus XGBoost and LightGBM on the synthetic data, and versus logistic regression and the attention-BiLSTM on the Taiwan data. The German difference against the attention-BiLSTM (p = 0.010) and the synthetic deficit against logistic regression do not survive it, and we treat them as suggestive.
+
+\begin{table*}[!t]
+\caption{Paired AUC differences, stacked (raw) minus comparator, $\Delta$AUC [95\% CI], p}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{lccc}
+\toprule
+Comparator & Synthetic & German & Taiwan \\
+\midrule
+Logistic & -0.0038 [-0.0066, -0.0010], 0.011 & +0.0114 [-0.0080, +0.0308], 0.228 & +0.0471 [+0.0352, +0.0589], $<$0.001 \\
+XGBoost & +0.0113 [+0.0066, +0.0161], $<$0.001 & +0.0042 [-0.0118, +0.0201], 0.586 & +0.0032 [-0.0006, +0.0070], 0.091 \\
+LightGBM & +0.0135 [+0.0078, +0.0193], $<$0.001 & +0.0087 [-0.0102, +0.0275], 0.341 & +0.0043 [-0.0004, +0.0091], 0.066 \\
+CatBoost & +0.0040 [-0.0001, +0.0080], 0.054 & -0.0044 [-0.0248, +0.0160], 0.653 & -0.0010 [-0.0088, +0.0067], 0.774 \\
+Attn-BiLSTM & +0.0001 [-0.0011, +0.0013], 0.907 & +0.0241 [+0.0069, +0.0413], 0.010 & +0.0172 [+0.0096, +0.0249], 0.001 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Adaptive weighting}
+
+The logistic meta-learner weights the two base learners differently by dataset. On the logit scale the attention-BiLSTM receives about 4 times the weight of XGBoost on the synthetic data (0.72 versus 0.18), while XGBoost dominates on the German data (0.38 versus 0.26) and the Taiwan data (0.66 versus 0.19). The two base predictions are correlated, so these weights should be read as a rough indication of which learner the stack trusts, not as importances.
+
+\subsection{Calibration}
+
+The attention-BiLSTM is overconfident on both real datasets, with calibration slopes of 0.62 (German) and 0.72 (Taiwan) and ECE of 0.093 and 0.040. XGBoost and LightGBM are also overconfident on the German data (slopes 0.63 and 0.61). The logistic meta-learner corrects this: the stacked ensemble has slopes of 1.02, 1.09 and 1.03 on the three datasets, and the lowest ECE of any model on the German data (0.055 versus 0.070 to 0.093). On the synthetic data every model is already close to calibrated and the stack matches logistic regression (ECE 0.023 versus 0.025). On the Taiwan data CatBoost has the lowest ECE (0.017), ahead of the isotonic stack (0.019) and the raw stack (0.022), so the stack is competitive with the best single model and never worse than a typical one. Figure 2 shows reliability diagrams for the synthetic and German data.
+
+\begin{figure*}[!tb]\centering\begin{minipage}{0.42\textwidth}\centering\includegraphics[width=\linewidth]{fig2a_reliability_synthetic.png}\\(a)\end{minipage}\hfill\begin{minipage}{0.42\textwidth}\centering\includegraphics[width=\linewidth]{fig2b_reliability_german.png}\\(b)\end{minipage}\caption{Reliability diagrams from pooled out-of-fold predictions: (a) simulated portfolio, (b) South German Credit.}\label{fig:rel}\end{figure*}
+
+\subsection{Isotonic recalibration}
+
+Isotonic regression did not improve on the meta-learner. It lowered PR-AUC in every fold of every dataset, by 0.017 (SD 0.004) on the synthetic data, 0.032 (SD 0.007) on the German data and 0.017 (SD 0.006) on the Taiwan data. It raised ECE on the German data (0.055 to 0.061) and lowered it only marginally elsewhere (0.023 to 0.022, and 0.022 to 0.019). This is expected. Isotonic regression produces a step function, which creates ties among applicants who were previously ranked apart, and precision-recall curves are sensitive to ranking among the highest-risk applicants. Calibration targets the reliability of probabilities, not the ordering of applicants. A Platt calibrator \cite{r26} preserves ranking and matched the raw stack on every metric, so the logistic meta-learner already supplies the calibration benefit.
+
+\subsection{Portfolio loss simulation (synthetic data)}
+
+Using out-of-fold predictions of the raw stack on each held-out fold, we simulate declining the highest-risk decile, which approves 90\% of applicants. Realized default among approved applicants falls from 30.2\% to 24.9\% (SD 0.2 points across folds). On \$1 million of daily originations, expected daily losses fall from about \$302,200 to about \$249,500, a reduction of 17.4\% (SD 0.8 points). This is a simulation on synthetic data, and the size of the gain depends on the data-generating process.
+
+\subsection{Explainability}
+
+Figure 3 shows the TreeExplainer summary for the XGBoost component and Figure 4 shows the KernelSHAP summary for the full calibrated stack, both on the synthetic portfolio. In both, credit score, the tariff-exposure index and debt-to-income ratio are the three most influential features. Mean absolute SHAP values for the tree component are 0.82 (credit score), 0.69 (tariff exposure) and 0.52 (debt-to-income), followed by delinquency history (0.39) and income (0.35). The ensemble ranking agrees on the top three (0.110, 0.076 and 0.054 in probability units) and swaps the next two, a difference within the noise of a 40-point explanation. Higher credit scores lower predicted risk, and higher tariff exposure and debt-to-income raise it. That the ensemble agrees with its interpretable component is evidence that its decision logic has not diverged from it. These figures use one 80/20 split (seed 42), on which the deployed isotonic stack scores ROC-AUC 0.849. That is about 2.5 points above its cross-validated mean of 0.824, which shows how far a single split can sit from the average and why we report cross-validated results throughout. KernelSHAP used 500 coalition samples per explanation, 30 background points and 40 explained points, which suffices for a summary plot but not for production adverse-action reasons.
+
+\begin{figure}[!t]\centering\includegraphics[width=\columnwidth]{fig3_treeshap_xgboost.png}\caption{TreeSHAP summary for the XGBoost component (simulated portfolio).}\end{figure}
+\begin{figure}[!t]\centering\includegraphics[width=\columnwidth]{fig4_kernelshap_ensemble.png}\caption{KernelSHAP summary for the full calibrated stack (simulated portfolio).}\end{figure}
+
+\section{Regulatory Alignment}
+
+Table V maps regulatory and model-risk requirements to the mechanism in this framework that addresses them. The mapping is meant to make the explainability and calibration components legible to model-risk and compliance reviewers. It is not a legal assertion of compliance, which depends on jurisdiction-specific implementation outside this paper\textquotesingle s scope.
+
+\begin{table}[!t]
+\caption{Regulatory requirement and framework mechanism}
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{p{0.36\columnwidth}p{0.56\columnwidth}}
+\toprule
+Requirement & Framework mechanism \\
+\midrule
+ECOA / Reg. B adverse action [20] & Per-applicant KernelSHAP attributions from the full ensemble (Fig. 4) can support reason-code generation, using larger samples than in this study and subject to legal review \\
+SR 11-7 effective challenge [19] & Independent baselines and corrected paired tests (Table IV) document where the ensemble does and does not outperform simpler models \\
+SR 11-7 ongoing monitoring [19] & Calibration slope, ECE and Brier score give trackable measures of probability drift over time \\
+GDPR Art. 22 / CCPA data privacy & The architecture is compatible with federated training [6]. This is not evaluated, and no privacy property is claimed \\
+Reproducibility and audit trail & A seeded pipeline regenerates every reported number and figure (Appendix A) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+
+The results support a narrower claim than "stacking improves credit risk models." Stacking does not reliably improve discrimination. On the synthetic portfolio it is significantly better than XGBoost and LightGBM but below logistic regression, which is well specified for that data. On both real datasets it is statistically tied with every strong gradient-boosted model and is above the attention-BiLSTM, although only the Taiwan difference survives a multiplicity correction.
+
+What stacking provides is stability and probability quality. Across three datasets it stays within 0.005 AUC of the best single model, it keeps the calibration slope between 1.02 and 1.09, and it replaces an overconfident neural component with usable probabilities. It has the lowest ECE on the German data, and is second to CatBoost on the Taiwan data. The meta-learner\textquotesingle s dataset-dependent weighting between XGBoost and the BiLSTM (Section VI-C) shows the stacking layer adapting to the data, though not translating that into a uniform AUC gain.
+
+Isotonic recalibration is not what delivers the calibration benefit. The logistic meta-learner and a Platt calibrator already reach slopes near 1, and isotonic regression lowers PR-AUC in every fold of every dataset. We therefore recommend isotonic recalibration only where a monotonic step-function score is specifically required. The practical case for the architecture rests on cross-dataset robustness, calibration, and full-ensemble explainability.
+
+\subsection{Limitations}
+
+\begin{itemize}
+
+\item
+  The synthetic generator is logistic, which favors logistic regression. Real repayment data is noisier and nonstationary.
+\item
+  The corrected South German Credit data is 1,000 loans from 1973 to 1975. Confidence intervals remain wide even with repeated cross-validation.
+\item
+  The Taiwan data is larger but dates from 2005 and was subsampled to 10,000 clients. A recent retail dataset with real macroeconomic covariates would be a stronger test.
+\item
+  The tariff-exposure index is a stylized stress variable, so the paper makes no claim about real tariff effects on defaults. A deployment should use sector-level trade exposure data.
+\item
+  Repeated cross-validation folds share data, so the corrected tests are approximate, and no multiplicity correction is applied beyond the Bonferroni check in Section VI-B.
+\item
+  The attention-BiLSTM sees a single time step, so it does not exploit sequence structure.
+\item
+  KernelSHAP used a small background and sample for tractability. Adverse-action reason codes need larger samples and validation.
+\item
+  No fairness or disparate-impact analysis was performed. This is required in practice for lending models and is outside this study.
+\end{itemize}
+
+\subsection{Implementation challenges}
+
+Nested cross-validation with a neural base learner is more expensive than fitting a single model, and took tens of minutes per dataset on CPU. This can be prohibitive for small fintech firms without cloud infrastructure. Federated variants \cite{r6} could ease data-privacy constraints but would add further cost, and are not evaluated here.
+
+\subsection{Future directions}
+
+Priorities are (1) validation on a larger, recent dataset with genuine multi-period repayment sequences, so the recurrent and attention layers are used as designed; (2) replacing the synthetic exposure index with real sector-level tariff and trade-policy data; (3) a fairness and disparate-impact analysis; (4) evaluation of TabNet and FT-Transformer on larger datasets; and (5) federated training across institutions.
+
+\section{Conclusion}
+
+This paper evaluates a stacked, calibrated and explainable credit risk framework that combines XGBoost and an attention-augmented BiLSTM, on a simulated tariff-stress portfolio, the corrected South German Credit data and a stratified subsample of the Taiwan credit-card default data. Under repeated, nested cross-validation the ensemble reaches mean ROC-AUC of 0.824, 0.793 and 0.767. It stays within 0.005 of the best single model on every dataset and is never significantly below a gradient-boosted model, but it does not reliably beat the strongest baselines: logistic regression is nominally better on the synthetic data (p = 0.011), and CatBoost is statistically tied on both real datasets. The ensemble\textquotesingle s reliable advantages are calibration (slopes of 1.02 to 1.09, the lowest ECE on German data) and robustness across datasets. Isotonic recalibration does not improve on the logistic meta-learner and lowers PR-AUC in every fold, so it is optional. Full-ensemble KernelSHAP explanations and the regulatory mapping in Table V support model-risk and adverse-action review. A seeded, open-source pipeline reproduces every reported number.
+
+\appendices
+\section{Reproducible Implementation}
+The pipeline is a single seeded Python package. It implements the synthetic portfolio generator, the logistic, XGBoost, LightGBM, CatBoost and attention-BiLSTM learners, nested repeated cross-validation with out-of-fold stacking, Platt and isotonic calibration, the Nadeau-Bengio paired tests, ECE and calibration-slope computation, reliability diagrams, and the two-tier SHAP explainability code. All random seeds are set to 42, and TensorFlow's oneDNN reordering is disabled and op determinism enabled. The following commands regenerate the results:
+\begin{lstlisting}
+python pipeline_revision.py --data synth --repeats 3 --out out
+python pipeline_revision.py --data german --repeats 3 --out out
+python pipeline_revision.py --data taiwan --repeats 2 --n_max 10000 --out out
+python analyze.py      # tables, tests, reliability figures
+python shap_figs.py    # Figures 3 and 4, loss inputs
+\end{lstlisting}
+Reruns on different hardware or package versions can differ in the third decimal for the neural learner, so we do not claim byte-identical output. Package versions and code are available at \repourl. The corrected South German Credit file is obtained from \cite{r21,r22}, and the Taiwan data from the UCI repository \cite{r31}.
+
+
+\begin{thebibliography}{99}
+\bibitem{r1} S. Hochreiter and J. Schmidhuber, "Long short-term memory," Neural Computation, vol. 9, no. 8, pp. 1735-1780, Nov. 1997.
+\bibitem{r2} T. Chen and C. Guestrin, "XGBoost: A scalable tree boosting system," in Proc. 22nd ACM SIGKDD Int. Conf. Knowledge Discovery and Data Mining, San Francisco, CA, USA, 2016, pp. 785-794.
+\bibitem{r3} A. Vaswani et al., "Attention is all you need," in Advances in Neural Information Processing Systems (NeurIPS), vol. 30, 2017, pp. 5998-6008.
+\bibitem{r4} S. M. Lundberg and S.-I. Lee, "A unified approach to interpreting model predictions," in Advances in Neural Information Processing Systems (NeurIPS), vol. 30, 2017, pp. 4765-4774.
+\bibitem{r5} D. H. Wolpert, "Stacked generalization," Neural Networks, vol. 5, no. 2, pp. 241-259, 1992.
+\bibitem{r6} H. B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. Aguera y Arcas, "Communication-efficient learning of deep networks from decentralized data," in Proc. 20th Int. Conf. Artificial Intelligence and Statistics (AISTATS), 2017, pp. 1273-1282.
+\bibitem{r7} A. Dernsjo and E. Blom, "A gradient boosting tree approach for behavioural credit scoring," M.S. thesis, KTH Royal Institute of Technology, Stockholm, Sweden, 2023.
+\bibitem{r8} J. Y. Lee and J. Yang, "Properties of alternative data for fairer credit risk predictions," Journal of Data-Centric Machine Learning Research, vol. 2, no. 2, pp. 1-27, 2024.
+\bibitem{r9} The Budget Lab at Yale, "The state of U.S. tariffs," Yale Univ., New Haven, CT, USA, Aug. 11, 2026. [Online]. Available: \url{https://budgetlab.yale.edu/research/state-us-tariffs}
+\bibitem{r10} Federal Reserve Bank of New York, "Household debt balances rise slightly as delinquency transition rates hold steady," Q1 2026 Household Debt and Credit Rep., New York, NY, USA, 2026.
+\bibitem{r11} LendingTree, "Personal loan statistics 2026," LendingTree, Charlotte, NC, USA, 2026.
+\bibitem{r12} Board of Governors of the Federal Reserve System, "Delinquency rate on consumer loans, all commercial banks (DRCLACBN)," Federal Reserve Bank of St. Louis, St. Louis, MO, USA, 2026. [Online]. Available: \url{https://fred.stlouisfed.org}
+\bibitem{r13} Withum, "Fintech in flux: How tariffs are reshaping the industry," Withum, Princeton, NJ, USA, 2025.
+\bibitem{r14} C. P. Bown and D. A. Irwin, "The GATT's starting point: Tariff levels circa 1947," in Assessing the World Trade Organization: Fit for Purpose?, M. Elsig, B. Hoekman, and J. Pauwelyn, Eds. New York, NY, USA: Cambridge Univ. Press, 2017, pp. 45-74.
+\bibitem{r15} S. Guercini, A. Perna, A. Runfola, and A. Tunisini, "A network perspective on supply chain management in the structural reshaping of globalization," Journal of Business and Industrial Marketing, vol. 40, no. 4, p. 834, 2025.
+\bibitem{r16} B. Li, "The role of artificial intelligence in financial risk management," Advances in Economics, Management and Political Sciences, vol. 158, pp. 110-117, 2025.
+\bibitem{r17} H. Hofmann, "Statlog (German Credit Data)," UCI Machine Learning Repository, 1994. [Online]. Available: \url{https://doi.org/10.24432/C5NC77}
+\bibitem{r18} B. Efron and R. J. Tibshirani, An Introduction to the Bootstrap. New York, NY, USA: Chapman and Hall, 1993.
+\bibitem{r19} Board of Governors of the Federal Reserve System and Office of the Comptroller of the Currency, "SR 11-7: Supervisory guidance on model risk management," Washington, DC, USA, Apr. 2011.
+\bibitem{r20} Equal Credit Opportunity Act, Regulation B, 12 C.F.R. Part 1002, 2011.
+\bibitem{r21} "South German Credit," UCI Machine Learning Repository, 2020. [Online]. Available: \url{https://doi.org/10.24432/C5QG88}
+\bibitem{r22} U. Groemping, "South German Credit Data: Correcting a Widely Used Data Set," Rep. 4/2019, Reports in Mathematics, Physics and Chemistry, Dept. II, Beuth Univ. of Applied Sciences Berlin, Berlin, Germany, 2019.
+\bibitem{r23} G. Ke et al., "LightGBM: A highly efficient gradient boosting decision tree," in Advances in Neural Information Processing Systems (NeurIPS), vol. 30, 2017, pp. 3146-3154.
+\bibitem{r24} L. Prokhorenkova, G. Gusev, A. Vorobev, A. V. Dorogush, and A. Gulin, "CatBoost: Unbiased boosting with categorical features," in Advances in Neural Information Processing Systems (NeurIPS), vol. 31, 2018, pp. 6638-6648.
+\bibitem{r25} C. Nadeau and Y. Bengio, "Inference for the generalization error," Machine Learning, vol. 52, no. 3, pp. 239-281, 2003.
+\bibitem{r26} J. C. Platt, "Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods," in Advances in Large Margin Classifiers, A. J. Smola, P. Bartlett, B. Scholkopf, and D. Schuurmans, Eds. Cambridge, MA, USA: MIT Press, 1999, pp. 61-74.
+\bibitem{r27} B. Zadrozny and C. Elkan, "Transforming classifier scores into accurate multiclass probability estimates," in Proc. 8th ACM SIGKDD Int. Conf. Knowledge Discovery and Data Mining, Edmonton, AB, Canada, 2002, pp. 694-699.
+\bibitem{r28} C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, "On calibration of modern neural networks," in Proc. 34th Int. Conf. Machine Learning (ICML), Sydney, Australia, 2017, pp. 1321-1330.
+\bibitem{r29} M. P. Naeini, G. F. Cooper, and M. Hauskrecht, "Obtaining well calibrated probabilities using Bayesian binning," in Proc. 29th AAAI Conf. Artificial Intelligence, Austin, TX, USA, 2015, pp. 2901-2907.
+\bibitem{r30} L. Grinsztajn, E. Oyallon, and G. Varoquaux, "Why do tree-based models still outperform deep learning on typical tabular data?" in Advances in Neural Information Processing Systems (NeurIPS), Datasets and Benchmarks Track, vol. 35, 2022.
+\bibitem{r31} I.-C. Yeh and C.-H. Lien, "The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients," Expert Systems with Applications, vol. 36, no. 2, pp. 2473-2480, 2009.
+\bibitem{r32} A. Niculescu-Mizil and R. Caruana, "Predicting good probabilities with supervised learning," in Proc. 22nd Int. Conf. Machine Learning (ICML), Bonn, Germany, 2005, pp. 625-632.
+\end{thebibliography}
+\end{document}
