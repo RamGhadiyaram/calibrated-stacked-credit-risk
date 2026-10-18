@@ -1,0 +1,25 @@
+digraph research_summary {
+  graph [fontname="Helvetica", pad=0.35, ranksep=0.45, labelloc=t, fontsize=22,
+         label=<<B>Calibrated stacked credit risk model: prevent loan losses when tariffs raise default risk</B>>];
+  node  [fontname="Helvetica", fontsize=13, shape=plaintext];
+  edge  [color="#5B6770", penwidth=2.2, arrowsize=1.1];
+  why   [label=<<TABLE BORDER="2" COLOR="#B5651D" BGCOLOR="#FDF0E6" CELLBORDER="0" CELLSPACING="10" STYLE="rounded">
+      <TR><TD COLSPAN="3"><FONT POINT-SIZE="16" COLOR="#B5651D"><B>1. WHY</B></FONT></TD></TR>
+      <TR><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Tariffs raise prices and<BR/>squeeze household income</TD><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Borrowers default more:<BR/>personal-loan delinquency<BR/>3.37% to 3.81% in a year</TD><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Lenders need risk scores that<BR/>are accurate, trustworthy<BR/>and explainable</TD></TR></TABLE>>];
+  what  [label=<<TABLE BORDER="2" COLOR="#2F5E9E" BGCOLOR="#E8F0FA" CELLBORDER="0" CELLSPACING="10" STYLE="rounded">
+      <TR><TD COLSPAN="4"><FONT POINT-SIZE="16" COLOR="#2F5E9E"><B>2. WHAT WE DID</B></FONT></TD></TR>
+      <TR><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Combined two models<BR/>(XGBoost + attention BiLSTM)<BR/>into one stacked ensemble</TD><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Calibrated the output so<BR/>30% risk really means<BR/>about 30% default</TD><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Explained every decision<BR/>with SHAP: credit score,<BR/>tariff exposure, debt-to-income</TD><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Tested on 3 datasets with<BR/>repeated nested cross-validation<BR/>and significance tests</TD></TR></TABLE>>];
+  found [label=<<TABLE BORDER="2" COLOR="#5E46A0" BGCOLOR="#F1EEF8" CELLBORDER="0" CELLSPACING="10" STYLE="rounded">
+      <TR><TD COLSPAN="3"><FONT POINT-SIZE="16" COLOR="#5E46A0"><B>3. WHAT WE FOUND</B></FONT></TD></TR>
+      <TR><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Reliable on all three datasets:<BR/>AUC within 0.005 of the best model<BR/>(0.824 / 0.793 / 0.767)</TD><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Probabilities are trustworthy:<BR/>calibration slope 1.02 to 1.09<BR/>(ideal is 1.00)</TD><TD BGCOLOR="white" BORDER="1" COLOR="#5B6770" STYLE="rounded" CELLPADDING="10" WIDTH="230">Honest limit: not always more<BR/>accurate than the best single<BR/>model; isotonic step adds nothing</TD></TR></TABLE>>];
+  benefit [label=<<TABLE BORDER="3" COLOR="#2E8B57" BGCOLOR="#DDF0E2" CELLBORDER="0" CELLSPACING="6" CELLPADDING="4" STYLE="rounded">
+      <TR><TD><FONT POINT-SIZE="19" COLOR="#1B6B3F"><B>4. THE BENEFIT: FEWER LOSSES</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="14">Decline only the riskiest 10% of applicants</FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="30" COLOR="#1B6B3F"><B>Defaults 30.2% to 25.0%</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="30" COLOR="#1B6B3F"><B>Expected loss down 17.4%</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="14">$302,200 to $249,500 lost per $1M lent daily</FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="14"><B>Also: auditable decisions for model-risk review</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11">Simulated portfolio, illustrative, not a forecast</FONT></TD></TR>
+    </TABLE>>];
+  why -> what -> found -> benefit;
+}

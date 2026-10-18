@@ -1,0 +1,11 @@
+{
+ "approve_share": 0.9,
+ "default_rate_all": 0.30216666666666675,
+ "default_rate_approved": 0.24950617283950619,
+ "default_rate_approved_sd": 0.0024464344419723645,
+ "daily_loss_before_per_1m": 302166.66666666674,
+ "daily_loss_after_per_1m": 249506.17283950618,
+ "reduction_mean": 0.1742746962904338,
+ "reduction_sd": 0.008192000222922036,
+ "folds": 15
+}
