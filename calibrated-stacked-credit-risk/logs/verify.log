@@ -1,5 +1,0 @@
-MISMATCH Table IV Attn-BiLSTM taiwan: paper='+0.0172 [+0.0096, +0.0249], 0.001' recomputed='+0.0172 [+0.0096, +0.0249], $<$0.001'
-MISMATCH PR-AUC drop taiwan: paper='0.016' recomputed='0.017'
-MISMATCH single split AUC 0.849: paper='0.851' recomputed='0.849'
-
-163 checks passed, 3 mismatches
