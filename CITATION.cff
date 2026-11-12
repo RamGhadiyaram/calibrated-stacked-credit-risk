@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software or the benchmark results, please cite it as below."
+title: "Calibration, Not Accuracy: What Stacking Adds to Gradient Boosting in Credit Risk Scoring (code and benchmark)"
+type: software
+license: MIT
+repository-code: "https://github.com/RamGhadiyaram/calibrated-stacked-credit-risk"
+keywords:
+  - credit risk
+  - probability calibration
+  - stacked generalization
+  - gradient boosting
+  - tabular deep learning
+  - algorithmic fairness
+authors:
+  - family-names: Ghadiyaram
+    given-names: Ram
+    orcid: "https://orcid.org/0009-0006-3730-0914"
+  - family-names: Peddapaidi
+    given-names: Vishnuvardhan
+    orcid: "https://orcid.org/0009-0006-5463-6129"
+  - family-names: Kaata
+    given-names: Sashi Kiran
+    orcid: "https://orcid.org/0009-0002-7980-2905"

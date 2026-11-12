@@ -1,0 +1,29 @@
+\begin{table}[t]
+\centering
+\caption{Fairness audit at 80\% approval. Gaps are the unprivileged group minus the reference group (mean over folds). Approval gap: share approved. Good-payer gap: share of non-defaulters approved. Observed default rate of each group shown for context. DE is South German Credit and TW is Taiwan; the number in brackets is the size of the unprivileged group. The German foreign-worker reference group has only 37 applicants, so that gap is noisy.}
+\label{tab:fair}
+\small
+\setlength{\tabcolsep}{1.5pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+Group & Model & Approval & Good-payer & \multicolumn{2}{c}{Default rate}\\
+ & & gap & gap & Unpriv. & Ref.\\
+\midrule
+DE age $<$25 (150) & Logistic & $-$0.143 & $-$0.141 & 41.3\% & 28.0\%\\
+ & CatBoost & $-$0.163 & $-$0.133 & 41.3\% & 28.0\%\\
+ & Stack-All & $-$0.152 & $-$0.129 & 41.3\% & 28.0\%\\
+\midrule
+DE foreign (963) & Logistic & $-$0.190 & $-$0.104 & 30.7\% & 10.8\%\\
+ & CatBoost & $-$0.084 & $-$0.023 & 30.7\% & 10.8\%\\
+ & Stack-All & $-$0.148 & $-$0.070 & 30.7\% & 10.8\%\\
+\midrule
+TW age $<$25 (2685) & Logistic & $-$0.055 & $-$0.024 & 27.2\% & 21.6\%\\
+ & CatBoost & $-$0.072 & $-$0.044 & 27.2\% & 21.6\%\\
+ & Stack-All & $-$0.074 & $-$0.044 & 27.2\% & 21.6\%\\
+\midrule
+TW female (18112) & Logistic & +0.061 & +0.046 & 20.8\% & 24.2\%\\
+ & CatBoost & +0.053 & +0.036 & 20.8\% & 24.2\%\\
+ & Stack-All & +0.055 & +0.037 & 20.8\% & 24.2\%\\
+\bottomrule
+\end{tabular}
+\end{table}

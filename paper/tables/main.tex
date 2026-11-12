@@ -1,0 +1,23 @@
+\begin{table*}[t]
+\centering
+\caption{Out-of-fold performance (mean over outer folds). German: 15 folds (3 repeats of 5-fold); Taiwan: 10 folds (2 repeats of 5-fold, 30,000 rows). Best value per column in bold; ties within rounding are all bold.}
+\label{tab:main}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{l|cccc|cccc}
+\toprule
+ & \multicolumn{4}{c|}{South German Credit} & \multicolumn{4}{c}{Taiwan credit-card default}\\
+Model & AUC & Brier & ECE & Slope & AUC & Brier & ECE & Slope\\
+\midrule
+Logistic & 0.782 & 0.168 & 0.086 & 0.737 & 0.724 & 0.145 & 0.050 & 0.987\\
+XGBoost & 0.788 & 0.167 & 0.088 & 0.644 & 0.783 & 0.134 & 0.011 & 0.965\\
+LightGBM & 0.786 & 0.168 & 0.093 & 0.627 & 0.782 & 0.134 & 0.012 & 0.961\\
+CatBoost & \textbf{0.799} & \textbf{0.161} & 0.071 & 0.833 & 0.783 & 0.134 & \textbf{0.010} & 1.006\\
+TabNet & 0.641 & 0.203 & 0.082 & 0.784 & 0.765 & 0.137 & 0.015 & \textbf{1.003}\\
+FT-Transformer & 0.740 & 0.182 & 0.072 & 1.381 & 0.778 & 0.135 & 0.014 & 0.968\\
+\midrule
+Stack-GBM & 0.796 & \textbf{0.161} & \textbf{0.065} & 1.101 & 0.784 & 0.134 & \textbf{0.010} & 1.004\\
+Stack-All & 0.795 & \textbf{0.161} & 0.067 & \textbf{1.048} & \textbf{0.785} & \textbf{0.133} & 0.011 & 1.004\\
+\bottomrule
+\end{tabular}
+\end{table*}

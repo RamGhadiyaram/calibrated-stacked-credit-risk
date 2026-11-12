@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Stylized stress sensitivity at severity 0.3: mean increase in predicted default probability (percentage points) and Spearman rank correlation with the unstressed ranking. Labels are unchanged; this is not a tariff forecast.}
+\label{tab:stress}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l|cc|cc}
+\toprule
+ & \multicolumn{2}{c|}{German} & \multicolumn{2}{c}{Taiwan}\\
+Model & Uplift & Rank $\rho$ & Uplift & Rank $\rho$\\
+\midrule
+Logistic & 1.78 & 0.998 & 0.33 & 0.997\\
+XGBoost & 0.09 & 0.948 & 2.03 & 0.946\\
+LightGBM & 0.16 & 0.937 & 2.25 & 0.941\\
+CatBoost & 0.23 & 0.966 & 1.31 & 0.980\\
+TabNet & 0.35 & 0.944 & 0.53 & 0.974\\
+FT-Transformer & 0.18 & 0.993 & 1.56 & 0.974\\
+Stack-GBM & 0.54 & 0.973 & 1.61 & 0.972\\
+Stack-All & 0.47 & 0.976 & 1.63 & 0.973\\
+\bottomrule
+\end{tabular}
+\end{table}

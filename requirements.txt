@@ -5,7 +5,7 @@ scikit-learn
 xgboost
 lightgbm
 catboost
-tensorflow
-shap
+torch
+pytorch-tabnet
 matplotlib
 tabulate

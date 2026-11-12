@@ -1,0 +1,17 @@
+digraph G {
+  rankdir=TB; nodesep=0.3; ranksep=0.6; bgcolor="white"; newrank=true;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=26, penwidth=2, margin="0.22,0.14"];
+  edge [penwidth=2.4, color="#444444", arrowsize=1.2];
+  data [label="Applicant\nrecords", fillcolor="#e8eef7", color="#3b5b92"];
+  base [label="Six base models\nLogistic, XGBoost, LightGBM,\nCatBoost, TabNet, FT-Transformer", fillcolor="#e8eef7", color="#3b5b92"];
+  meta [label="Logistic meta-learner\non out-of-fold logits", fillcolor="#fdecea", color="#b23a2e"];
+  pd [label="Calibrated\ndefault probability", fillcolor="#fdecea", color="#b23a2e"];
+  {rank=same; data; base; meta; pd}
+  r1 [label="Honest ranking\npaired tests,\nHolm-adjusted", fillcolor="#e6f4ea", color="#2e7d4f"];
+  r2 [label="Trustworthy\nprobabilities\nreliability, slope", fillcolor="#e6f4ea", color="#2e7d4f"];
+  r3 [label="Fairness evidence\ngroup gaps at\n80% approval", fillcolor="#e6f4ea", color="#2e7d4f"];
+  r4 [label="Stress sensitivity\nrank stability\nunder shifts", fillcolor="#e6f4ea", color="#2e7d4f"];
+  {rank=same; r1; r2; r3; r4}
+  data -> base -> meta -> pd;
+  pd -> r4; pd -> r3; pd -> r2; pd -> r1;
+}

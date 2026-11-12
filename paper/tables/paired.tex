@@ -1,0 +1,31 @@
+\begin{table*}[t]
+\centering
+\caption{Paired differences, Stack-All minus each comparator, over outer folds. Mean difference with 95\% interval from the Nadeau-Bengio corrected resampled $t$-test; $p_H$ is the Holm-adjusted $p$-value over the seven comparators. Negative Brier differences favor Stack-All.}
+\label{tab:paired}
+\small
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{l|rcr|rcr}
+\toprule
+Comparator & \multicolumn{3}{c|}{AUC difference} & \multicolumn{3}{c}{Brier difference}\\
+ & Diff. & 95\% interval & $p_H$ & Diff. & 95\% interval & $p_H$\\
+\midrule
+\multicolumn{7}{l}{\textit{South German Credit (15 folds)}}\\
+Logistic & +0.0135 & [$-$0.0118,  +0.0388] & 1.000 & $-$0.0069 & [$-$0.0165,  +0.0026] & 0.424\\
+XGBoost & +0.0075 & [$-$0.0100,  +0.0249] & 1.000 & $-$0.0060 & [$-$0.0128,  +0.0008] & 0.310\\
+LightGBM & +0.0096 & [$-$0.0102,  +0.0293] & 1.000 & $-$0.0072 & [$-$0.0142,  $-$0.0002] & 0.228\\
+CatBoost & $-$0.0034 & [$-$0.0161,  +0.0092] & 1.000 & +0.0002 & [$-$0.0049,  +0.0053] & 1.000\\
+TabNet & +0.1545 & [+0.0690,  +0.2399] & 0.012 & $-$0.0417 & [$-$0.0596,  $-$0.0238] & 0.001\\
+FT-Transformer & +0.0550 & [$-$0.0024,  +0.1124] & 0.355 & $-$0.0211 & [$-$0.0363,  $-$0.0059] & 0.060\\
+Stack-GBM & $-$0.0006 & [$-$0.0062,  +0.0051] & 1.000 & +0.0005 & [$-$0.0017,  +0.0027] & 1.000\\
+\midrule
+\multicolumn{7}{l}{\textit{Taiwan credit-card default (10 folds)}}\\
+Logistic & +0.0604 & [+0.0511,  +0.0698] & $<$0.001 & $-$0.0114 & [$-$0.0129,  $-$0.0099] & $<$0.001\\
+XGBoost & +0.0015 & [$-$0.0007,  +0.0037] & 0.265 & $-$0.0005 & [$-$0.0009,  $-$0.0000] & 0.077\\
+LightGBM & +0.0023 & [+0.0007,  +0.0039] & 0.051 & $-$0.0006 & [$-$0.0009,  $-$0.0003] & 0.013\\
+CatBoost & +0.0016 & [+0.0002,  +0.0030] & 0.110 & $-$0.0004 & [$-$0.0006,  $-$0.0001] & 0.032\\
+TabNet & +0.0196 & [+0.0151,  +0.0241] & $<$0.001 & $-$0.0037 & [$-$0.0046,  $-$0.0028] & $<$0.001\\
+FT-Transformer & +0.0066 & [$-$0.0012,  +0.0143] & 0.265 & $-$0.0015 & [$-$0.0031,  +0.0000] & 0.077\\
+Stack-GBM & +0.0005 & [$-$0.0002,  +0.0012] & 0.265 & $-$0.0002 & [$-$0.0003,  $-$0.0001] & 0.024\\
+\bottomrule
+\end{tabular}
+\end{table*}

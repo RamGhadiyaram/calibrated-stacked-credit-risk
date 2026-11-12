@@ -1,8 +1,10 @@
 __pycache__/
 *.pyc
 out/
-out_shap/
-data/
 logs/
 catboost_info/
 .ipynb_checkpoints/
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/paper.pdf

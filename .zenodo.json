@@ -1,0 +1,13 @@
+{
+  "title": "Calibration, Not Accuracy: What Stacking Adds to Gradient Boosting in Credit Risk Scoring (code and benchmark)",
+  "upload_type": "software",
+  "description": "Reproducible benchmark of a calibrated stacked ensemble against logistic regression, XGBoost, LightGBM, CatBoost, TabNet and an FT-Transformer on the South German Credit and Taiwan credit-card default datasets, with repeated nested cross-validation, Nadeau-Bengio paired tests with Holm adjustment, calibration analysis, a group fairness audit and a stylized stress sensitivity. Includes code, a Colab notebook, the results of the reported run, the manuscript source and a script that checks every number in the manuscript against the results.",
+  "creators": [
+    {"name": "Ghadiyaram, Ram", "orcid": "0009-0006-3730-0914"},
+    {"name": "Peddapaidi, Vishnuvardhan", "orcid": "0009-0006-5463-6129"},
+    {"name": "Kaata, Sashi Kiran", "orcid": "0009-0002-7980-2905"}
+  ],
+  "license": "MIT",
+  "keywords": ["credit risk", "probability calibration", "stacked generalization", "gradient boosting", "tabular deep learning", "algorithmic fairness"],
+  "access_right": "open"
+}
